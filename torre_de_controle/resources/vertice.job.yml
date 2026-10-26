@@ -1,0 +1,80 @@
+# Job do Farol, toda segunda às 6h. Sete tarefas:
+#
+#   ingestao_feriados ──┐
+#                       ├── conferencia_bronze ── medalhao ──┬── testes_de_qualidade ──┐
+#   ingestao_data_lake ─┘                                    └── status_com_ia ────────┴── metricas_governadas
+#
+# 1. ingestao_feriados   BrasilAPI -> bronze.feriados
+# 2. ingestao_data_lake  Supabase (boto3) -> volume bronze.raw -> 9 tabelas da bronze
+# 3. conferencia_bronze  confere as 9 tabelas contra a contagem esperada (seed 42)
+# 4. medalhao            pipeline Lakeflow: silver (7 tabelas) e gold (3 tabelas)
+# 5. testes_de_qualidade 10 testes, cada um com raise_error se falhar
+# 6. status_com_ia       texto livre do status vira coluna (regra, IA ou palavra-chave)
+# 7. metricas_governadas metric view gold.mv_projetos: a fórmula de cada KPI num lugar só
+#
+# max_concurrent_runs: 1, porque duas execuções ao mesmo tempo apagariam a bronze uma da outra.
+
+resources:
+  jobs:
+    vertice_farol:
+      name: vertice_farol
+
+      max_concurrent_runs: 1
+      performance_target: PERFORMANCE_OPTIMIZED
+      queue:
+        enabled: true
+
+      # Toda segunda às 6h. No dev o preset trigger_pause_status deixa pausado.
+      schedule:
+        quartz_cron_expression: "0 0 6 ? * MON"
+        timezone_id: America/Sao_Paulo
+        pause_status: UNPAUSED
+
+      tasks:
+        - task_key: ingestao_feriados
+          notebook_task:
+            notebook_path: ../src/ingestao/ingestao_feriados.py
+
+        - task_key: ingestao_data_lake
+          notebook_task:
+            notebook_path: ../src/ingestao/ingestao_boto3_supabase.py
+
+        - task_key: conferencia_bronze
+          depends_on:
+            - task_key: ingestao_feriados
+            - task_key: ingestao_data_lake
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/conferencia/00-conferencia-bronze.sql
+
+        - task_key: medalhao
+          depends_on:
+            - task_key: conferencia_bronze
+          pipeline_task:
+            pipeline_id: ${resources.pipelines.vertice_medalhao.id}
+
+        - task_key: testes_de_qualidade
+          depends_on:
+            - task_key: medalhao
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/testes/testes.sql
+
+        - task_key: status_com_ia
+          depends_on:
+            - task_key: medalhao
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/ia/status_estruturado.sql
+
+        - task_key: metricas_governadas
+          depends_on:
+            - task_key: testes_de_qualidade
+            - task_key: status_com_ia
+          sql_task:
+            warehouse_id: ${var.warehouse_id}
+            file:
+              path: ../src/metricas/metricas.sql

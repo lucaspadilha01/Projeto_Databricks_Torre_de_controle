@@ -1,0 +1,47 @@
+bundle:
+  name: minha-torre
+
+variables:
+  sql_warehouse_id:
+    description: SQL Warehouse ID
+  genie_space_id:
+    description: ID do Genie Farol · Diretoria (bundle summary da raiz)
+  genie_space_name:
+    description: Nome do Genie space
+
+resources:
+  apps:
+    app:
+      name: "minha-torre"
+      description: "Projeto Farol · Vértice: projetos em risco e simulador de realocação"
+      source_code_path: ./
+
+      # Start the app automatically on deploy.
+      lifecycle:
+        started: true
+      # A aba Perguntar roda o Genie em nome de quem pergunta (OBO): vale a permissão de cada usuário.
+      user_api_scopes:
+        - dashboards.genie
+
+      # The resources which this app has access to.
+      resources:
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.sql_warehouse_id}
+            permission: CAN_USE
+        - name: genie-space
+          genie_space:
+            name: ${var.genie_space_name}
+            space_id: ${var.genie_space_id}
+            permission: CAN_RUN
+
+targets:
+  default:
+    default: true
+    workspace:
+      host: https://dbc-bf40fd1d-f32f.cloud.databricks.com
+
+    variables:
+      sql_warehouse_id: f02622d59e2eaa86
+      genie_space_id: 01f1d0da73151259860a3e15c054b0f0
+      genie_space_name: Farol · Diretoria

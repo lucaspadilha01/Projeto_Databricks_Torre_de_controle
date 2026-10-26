@@ -1,0 +1,46 @@
+# This is a Declarative Automation Bundle definition for torre_de_controle.
+# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+bundle:
+  name: torre_de_controle
+  uuid: 7934fda9-cf32-41fb-afeb-177fdff6642a
+
+include:
+  - resources/*.yml
+
+# O app minha-torre é um bundle próprio: sem isso o deploy do bundle da raiz sobe o node_modules dele.
+sync:
+  exclude:
+    - minha-torre/**
+
+artifacts:
+  python_artifact:
+    type: whl
+    build: uv build --wheel
+
+# Variable declarations.
+variables:
+  catalog:
+    description: Catálogo do lakehouse
+    default: lakehouse_vertice
+  warehouse_id:
+    description: SQL warehouse das tarefas sql_task
+    default: f02622d59e2eaa86
+
+targets:
+  dev:
+    # Sem 'mode: development': ele prefixa os nomes com [dev usuario].
+    # O preset abaixo só mantém agendamentos e gatilhos pausados.
+    default: true
+    presets:
+      trigger_pause_status: PAUSED
+    workspace:
+      host: https://dbc-bf40fd1d-f32f.cloud.databricks.com
+  prod:
+    mode: production
+    workspace:
+      host: https://dbc-bf40fd1d-f32f.cloud.databricks.com
+      # Deploy na pasta de quem roda o bundle, para existir uma única cópia.
+      root_path: /Workspace/Users/${workspace.current_user.userName}/.bundle/${bundle.name}/${bundle.target}
+    permissions:
+      - user_name: ${workspace.current_user.userName}
+        level: CAN_MANAGE

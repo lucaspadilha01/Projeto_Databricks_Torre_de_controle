@@ -1,0 +1,18 @@
+.databricks/
+build/
+dist/
+__pycache__/
+*.egg-info
+.venv/
+scratch/**
+!scratch/README.md
+**/explorations/**
+**/!explorations/README.md
+
+# Material do curso (Imersão Jornada de Dados): repositório sem licença, baixe do original
+# https://github.com/lvgalvao/ImersaoControlTower
+aulas/
+Prompts/
+CLAUDE.md
+scripts/run_sql.py
+scripts/genie.py

@@ -1,0 +1,168 @@
+{
+  "version": 2,
+  "config": {
+    "sample_questions": [
+      {
+        "id": "10000000000000000000000000000001",
+        "question": [
+          "Quais projetos estão atrasados, e de quais clientes?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000002",
+        "question": [
+          "Quanto esse atraso vai me custar?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000003",
+        "question": [
+          "Tenho gente parada enquanto outro projeto pede gente?"
+        ]
+      },
+      {
+        "id": "10000000000000000000000000000004",
+        "question": [
+          "O que vai dar errado no próximo mês?"
+        ]
+      }
+    ]
+  },
+  "data_sources": {
+    "metric_views": [
+      {
+        "identifier": "lakehouse_vertice.gold.mv_projetos"
+      }
+    ],
+    "tables": [
+      {
+        "identifier": "lakehouse_vertice.gold.fato_projeto_semana"
+      },
+      {
+        "identifier": "lakehouse_vertice.gold.projeto_situacao_atual",
+        "column_configs": [
+          {
+            "column_name": "cliente",
+            "enable_entity_matching": true
+          },
+          {
+            "column_name": "farol_calculado",
+            "enable_format_assistance": true
+          },
+          {
+            "column_name": "farol_do_gerente",
+            "enable_format_assistance": true
+          },
+          {
+            "column_name": "ferramenta",
+            "enable_format_assistance": true
+          },
+          {
+            "column_name": "projeto_id",
+            "enable_entity_matching": true
+          },
+          {
+            "column_name": "situacao",
+            "enable_format_assistance": true
+          }
+        ]
+      },
+      {
+        "identifier": "lakehouse_vertice.gold.status_estruturado",
+        "column_configs": [
+          {
+            "column_name": "causa_bloqueio",
+            "enable_format_assistance": true
+          }
+        ]
+      },
+      {
+        "identifier": "lakehouse_vertice.gold.utilizacao_pessoa_semana",
+        "column_configs": [
+          {
+            "column_name": "papel",
+            "enable_format_assistance": true
+          }
+        ]
+      },
+      {
+        "identifier": "lakehouse_vertice.silver.entregas_fornecedor",
+        "column_configs": [
+          {
+            "column_name": "fornecedor",
+            "enable_entity_matching": true,
+            "enable_format_assistance": true
+          }
+        ]
+      }
+    ]
+  },
+  "instructions": {
+    "example_question_sqls": [
+      {
+        "id": "20000000000000000000000000000001",
+        "question": [
+          "Quais projetos estão atrasados, e de quais clientes?"
+        ],
+        "sql": [
+          "SELECT projeto_id, cliente, situacao, ROUND(spi, 2) AS spi, ROUND(cpi, 2) AS cpi, atraso_projetado_dias FROM lakehouse_vertice.gold.projeto_situacao_atual WHERE status = 'em_andamento' AND situacao IN ('atenção', 'crítico') ORDER BY LEAST(spi, cpi)"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000002",
+        "question": [
+          "Quais clientes têm projetos críticos?"
+        ],
+        "sql": [
+          "SELECT DISTINCT cliente FROM lakehouse_vertice.gold.projeto_situacao_atual WHERE status = 'em_andamento' AND situacao = 'crítico'"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000003",
+        "question": [
+          "Quanto esse atraso vai me custar?"
+        ],
+        "sql": [
+          "SELECT situacao, MEASURE(projetos) AS projetos, ROUND(MEASURE(estouro_previsto), 2) AS estouro_previsto FROM lakehouse_vertice.gold.mv_projetos GROUP BY situacao ORDER BY estouro_previsto DESC"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000004",
+        "question": [
+          "Tenho gente parada enquanto outro projeto pede gente?"
+        ],
+        "sql": [
+          "SELECT colaborador_id, nome, papel, projeto_id, ROUND(SUM(horas_apontadas) / SUM(horas_disponiveis), 3) AS utilizacao, ROUND(SUM(custo_ocioso), 2) AS custo_ocioso FROM lakehouse_vertice.gold.utilizacao_pessoa_semana WHERE semana > DATE'2026-07-24' GROUP BY colaborador_id, nome, papel, projeto_id HAVING SUM(horas_apontadas) / SUM(horas_disponiveis) < 0.2 ORDER BY utilizacao"
+        ]
+      },
+      {
+        "id": "20000000000000000000000000000005",
+        "question": [
+          "O que vai dar errado no próximo mês?"
+        ],
+        "sql": [
+          "SELECT 'entrega de consultoria em atraso' AS risco, projeto_id, fornecedor AS detalhe, CAST(datediff(DATE'2026-10-16', data_prometida) AS STRING) || ' dias de atraso' AS situacao FROM lakehouse_vertice.silver.entregas_fornecedor WHERE em_atraso UNION ALL SELECT 'change freeze do varejo (01/11/2026 a 10/01/2027)', projeto_id, tipo_projeto, situacao FROM lakehouse_vertice.gold.projeto_situacao_atual WHERE status = 'em_andamento' AND (lower(tipo_projeto) LIKE '%commerce%' OR lower(tipo_projeto) LIKE '%checkout%' OR lower(tipo_projeto) LIKE '%marketplace%') ORDER BY risco, projeto_id"
+        ]
+      }
+    ],
+    "text_instructions": [
+      {
+        "id": "30000000000000000000000000000001",
+        "content": [
+          "QUEM PERGUNTA: o dono e a diretoria da Vértice Tecnologia, que não escrevem SQL. Responda em português, com R$ e índices com 2 casas.",
+          "HOJE é 2026-10-16 (sexta). Nunca use current_date(). 'Últimos 90 dias' = data_status >= DATE'2026-07-18'. 'Últimas 12 semanas' = semana > DATE'2026-07-24'. 'Próximo mês' = de 2026-10-17 a 2026-11-16.",
+          "FÓRMULAS: SPI = EV / PV (menor que 1 é atraso). CPI = EV / AC (menor que 1 é estouro). EAC = orçamento / CPI. Estouro previsto = EAC menos orçamento, só quando positivo. Margem projetada = (valor do contrato - EAC) / valor do contrato. Atraso projetado (dias) = duração do baseline / SPI - duração do baseline. Razão nunca é média: a razão da carteira é SUM(ev) / SUM(pv), nunca a média dos SPIs.",
+          "REGRAS DE CORTE: SPI ou CPI < 0,9 = atenção. SPI ou CPI < 0,8 = crítico. Projetos 'em risco' = atenção + crítico. Farol calculado (regra do manual): verde com SPI >= 0,95, amarelo >= 0,90, vermelho abaixo.",
+          "ONDE BUSCAR: para totais e KPIs da carteira de hoje use a metric view mv_projetos (MEASURE). Para ranking, lista e detalhe por projeto use projeto_situacao_atual (uma linha por projeto, a fotografia de hoje). Para histórico semanal use fato_projeto_semana. 'Projetos em andamento' = status = 'em_andamento'. O código do projeto (PRJ-000) está em projeto_id e também na coluna projeto (iguais). O nome está em nome_projeto. Os valores de ferramenta são sempre em minúsculas: 'excel', 'clickup' e 'msproject'.",
+          "PV, EV e AC no fato_projeto_semana são ACUMULADOS até a semana: NUNCA some semanas. Para um valor numa data, filtre a semana (sexta-feira) e leia a linha.",
+          "FAROL E MELANCIA: farol_do_gerente é o que o gerente publicou. farol_calculado é pelo número. Melancia = projeto em andamento com farol do gerente verde e SPI < 0,9 (a coluna melancia). 'Posso confiar no farol?' compara os dois.",
+          "'POR QUE O PROJETO X ATRASOU': responda com a causa_bloqueio do status_estruturado nos últimos 90 dias, ignorando sem_bloqueio e nao_reportado, ordenada por quantidade de ocorrências, com a soma de dias_impacto e o SPI do projeto. Se a causa for falta_sre, acrescente os SREs ociosos (papel = 'sre', utilização < 20% em 12 semanas).",
+          "GENTE PARADA: utilização < 20% nas últimas 12 semanas, em utilizacao_pessoa_semana (SUM(horas_apontadas) / SUM(horas_disponiveis) por pessoa e projeto). Custo da hora parada = custo_ocioso.",
+          "FORNECEDOR: prazo real dividido por prometido = SUM(prazo_real_dias) / SUM(prazo_prometido_dias) em silver.entregas_fornecedor, só entregas já feitas. Entrega em atraso hoje = coluna em_atraso. A CodeForge já vem normalizada como 'CodeForge Consultoria Ltda'.",
+          "'O QUE VAI DAR ERRADO NO PRÓXIMO MÊS': junte (1) as entregas de consultoria em atraso hoje (silver.entregas_fornecedor, em_atraso) e (2) o change freeze do varejo de 01/11/2026 a 10/01/2027, que trava os projetos de e-commerce em andamento (tipo_projeto de e-commerce, checkout ou marketplace). Cite os projetos e quanto está em jogo. Termine com o que fazer agora.",
+          "'QUAIS CLIENTES': devolva cada cliente uma única vez (SELECT DISTINCT), com a contagem de projetos se ajudar."
+        ]
+      }
+    ]
+  }
+}

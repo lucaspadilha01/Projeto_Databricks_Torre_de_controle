@@ -1,0 +1,11 @@
+# Genie "Farol · Diretoria": o agente que o dono usa para perguntar em português.
+# O conteúdo (tabelas, instruções, exemplos) vem de scripts/gerar_genie.py. Não edite no workspace.
+# O Genie precisa das tabelas existindo: do zero, a ordem é deploy, run metricas_governadas, deploy.
+
+resources:
+  genie_spaces:
+    genie_farol:
+      title: "Farol · Diretoria"
+      description: "Perguntas em português sobre a carteira de projetos da Vértice: atraso, custo, pessoas paradas e fornecedores."
+      warehouse_id: ${var.warehouse_id}
+      file_path: ./farol.geniespace.json

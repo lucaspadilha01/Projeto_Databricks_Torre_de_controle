@@ -1,0 +1,15 @@
+# Pipeline medalhão do Vértice (SQL). Hoje só a silver; o prompt 2 acrescenta ../src/gold/**.
+
+resources:
+  pipelines:
+    vertice_medalhao:
+      name: vertice_medalhao
+      catalog: ${var.catalog}
+      schema: silver
+      serverless: true
+      photon: true
+      libraries:
+        - glob:
+            include: ../src/silver/**
+        - glob:
+            include: ../src/gold/**

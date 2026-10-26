@@ -1,0 +1,12 @@
+# Dashboard do dono: lê a gold que o job vertice_farol recalcula toda segunda.
+# O JSON é gerado por scripts/gerar_dashboard.py; não edite o dashboard no workspace.
+
+resources:
+  dashboards:
+    dashboard_portfolio:
+      display_name: "Projeto Farol · Portfólio"
+      file_path: ./dashboard-portfolio.lvdash.json
+      warehouse_id: ${var.warehouse_id}
+      # As queries usam nome de tabela puro; catálogo e schema vêm daqui.
+      dataset_catalog: ${var.catalog}
+      dataset_schema: gold
