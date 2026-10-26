@@ -1,5 +1,5 @@
-# This is a Declarative Automation Bundle definition for torre_de_controle.
-# See https://docs.databricks.com/dev-tools/bundles/index.html for documentation.
+# Bundle do Projeto Farol (Declarative Automation Bundles).
+# Documentação: https://docs.databricks.com/dev-tools/bundles/index.html
 bundle:
   name: torre_de_controle
   uuid: 7934fda9-cf32-41fb-afeb-177fdff6642a
@@ -11,11 +11,6 @@ include:
 sync:
   exclude:
     - minha-torre/**
-
-artifacts:
-  python_artifact:
-    type: whl
-    build: uv build --wheel
 
 # Variable declarations.
 variables:

@@ -1,12 +1,26 @@
 # Projeto Farol · Torre de Controle de Projetos no Databricks
 
+[![CI](https://github.com/lucaspadilha01/Projeto_Databricks_Torre_de_controle/actions/workflows/ci.yml/badge.svg)](https://github.com/lucaspadilha01/Projeto_Databricks_Torre_de_controle/actions/workflows/ci.yml) ![Databricks](https://img.shields.io/badge/Databricks-Lakeflow%20%C2%B7%20Genie%20%C2%B7%20Apps-FF3621) ![License](https://img.shields.io/badge/license-MIT-blue)
+
 Plataforma de dados ponta a ponta no **Databricks** que responde, em uma tela, as quatro perguntas de um dono de empresa de tecnologia: **quais projetos estão atrasados, quanto esse atraso vai custar, tem gente parada enquanto outro projeto pede gente, e o que vai dar errado no próximo mês.**
 
 Ingestão, limpeza, modelagem, testes, IA, métricas governadas, dashboard, agente em linguagem natural (Genie) e um app web, tudo **como código** em um único bundle (Declarative Automation Bundles), recalculado sozinho toda segunda às 6h.
 
 > Projeto construído durante a **Imersão Jornada de Dados** (outubro/2026), a partir de um caso fictício: a Vértice Tecnologia, com 60 projetos, 520 pessoas e R$ 305 mi de carteira. Todos os dados são sintéticos.
 
-![Dashboard Projeto Farol · Portfólio](torre_de_controle/docs/img/04-dashboard-portfolio-graficos.jpg)
+## Resultado de negócio
+
+Uma torre de controle que consolida 60 projetos controlados em **Excel, ClickUp e MS Project** e mostra, toda segunda de manhã:
+
+- **R$ 6,47 mi de estouro de custo previsto** na carteira em andamento (R$ 208,6 mi);
+- **17 de 41 projetos em risco**, 7 deles críticos;
+- **4 "melancias"**: o gerente publica farol verde, mas o número diz atraso;
+- **2 SREs parados** (6% de uso) enquanto um projeto perde 57 dias por falta de SRE: realocar vale ~R$ 22 mil e recupera 19 dias;
+- **1 fornecedor** que entrega com 1,41× o prazo prometido e nenhuma entrega no prazo.
+
+| Dashboard AI/BI | App (Databricks Apps) |
+|---|---|
+| ![Dashboard](torre_de_controle/docs/img/demo-dashboard.gif) | ![App](torre_de_controle/docs/img/demo-app.gif) |
 
 ## O problema
 
@@ -52,6 +66,55 @@ O job `vertice_farol` tem **7 tarefas**, roda **toda segunda às 6h** (America/S
 
 ![Pipeline vertice_medalhao](torre_de_controle/docs/img/02-pipeline-vertice-medalhao.jpg)
 
+### Modelo de dados (silver e gold)
+
+```mermaid
+erDiagram
+    PROJETOS ||--o{ TAREFAS : "de-para da ferramenta"
+    PROJETOS ||--o{ STATUS_SEMANAL : publica
+    PROJETOS ||--o{ CUSTOS : acumula
+    PROJETOS ||--o{ APONTAMENTOS : recebe
+    PROJETOS ||--o{ ENTREGAS_FORNECEDOR : contrata
+    COLABORADORES ||--o{ APONTAMENTOS : registra
+    PROJETOS {
+        string projeto_id PK
+        string ferramenta "excel, clickup ou msproject"
+        date data_inicio
+    }
+    TAREFAS {
+        string tarefa_id PK
+        string projeto_id FK
+        double pct_concluido "0 a 100, com flag de acima de 100"
+        double horas
+    }
+    STATUS_SEMANAL {
+        string projeto_id FK
+        date data_status
+        string farol "verde, amarelo ou vermelho"
+        boolean status_vazio
+    }
+    CUSTOS {
+        string lancamento_id PK
+        decimal valor "liquido, estorno fica"
+        date semana
+    }
+    APONTAMENTOS {
+        string colaborador_id FK
+        string projeto_id FK
+        date semana
+    }
+    ENTREGAS_FORNECEDOR {
+        string entrega_id PK
+        string fornecedor "4 grafias da CodeForge viram 1"
+        boolean em_atraso
+    }
+    PROJETOS ||--|| PROJETO_SITUACAO_ATUAL : "fotografia de 16/10/2026"
+    PROJETOS ||--o{ FATO_PROJETO_SEMANA : "PV, EV e AC acumulados"
+    STATUS_SEMANAL ||--o| STATUS_ESTRUTURADO : "regra, IA ou palavra-chave"
+    APONTAMENTOS ||--o{ UTILIZACAO_PESSOA_SEMANA : "horas ociosas e custo"
+    PROJETO_SITUACAO_ATUAL ||--|| MV_PROJETOS : "metric view: KPIs governados"
+```
+
 ## Decisões de engenharia que valem a leitura
 
 - **Três ferramentas viram uma.** Cada ferramenta tem uma `TEMPORARY VIEW` com as **mesmas colunas**, e um `UNION ALL` forma a `silver.tarefas` (4.917 tarefas: Excel 1.643, ClickUp 2.119, MS Project 1.155). O projeto de cada tarefa vem do cadastro do PMO (o de-para), com fallback pelo `PRJ-xxx` do nome do arquivo.
@@ -83,21 +146,13 @@ Simulando a realocação de uma SRE parada para o PRJ-011 (57 dias de impacto po
 
 ## Telas
 
-### Dashboard
-| | |
+| Genie · "O que vai dar errado no próximo mês?" | App · Projetos em risco |
 |---|---|
-| ![KPIs](torre_de_controle/docs/img/03-dashboard-portfolio-kpis.jpg) | ![Pessoas](torre_de_controle/docs/img/05-dashboard-pessoas.jpg) |
-| ![Fornecedores](torre_de_controle/docs/img/06-dashboard-fornecedores.jpg) | |
+| ![Genie](torre_de_controle/docs/img/08-genie-resposta-proximo-mes.jpg) | ![App](torre_de_controle/docs/img/09-app-projetos-em-risco.jpg) |
 
-### Genie · "O que vai dar errado no próximo mês?"
-| | |
-|---|---|
-| ![Genie](torre_de_controle/docs/img/07-genie-farol-diretoria.jpg) | ![Resposta](torre_de_controle/docs/img/08-genie-resposta-proximo-mes.jpg) |
-
-### App (Databricks Apps)
-| | |
-|---|---|
-| ![Projetos em risco](torre_de_controle/docs/img/09-app-projetos-em-risco.jpg) | ![Simulador](torre_de_controle/docs/img/10-app-simulador.jpg) |
+| Dashboard · gráficos |
+|---|
+| ![Dashboard](torre_de_controle/docs/img/04-dashboard-portfolio-graficos.jpg) |
 
 ## Stack
 
@@ -137,6 +192,8 @@ databricks apps deploy --profile <perfil>
 ## Estrutura
 
 ```
+.github/workflows/ci.yml          CI: typecheck e lint do app, scripts e varredura de segredos
+LICENSE                           MIT
 torre_de_controle/
 ├── databricks.yml                 bundle (variáveis catalog e warehouse_id, targets dev e prod)
 ├── resources/                     job, pipeline, dashboard e Genie
@@ -152,6 +209,13 @@ torre_de_controle/
 └── docs/img/                      capturas de tela
 ```
 
+## Roadmap
+
+- [ ] **Modelo preditivo de estouro** (`gold.score_estouro_30d`): classificador com corte temporal para evitar vazamento, registrado no Unity Catalog e servido ao app (a aba já está pronta e mostra "—" enquanto a tabela não existe).
+- [ ] **Aprovação de realocação**: botão Aprovar/Recusar no simulador gravando a decisão e o e-mail de quem clicou (Lakebase).
+- [ ] **Alertas** por e-mail/Slack quando um projeto virar crítico.
+- [ ] **CI com deploy** em ambiente de homologação (hoje o CI não usa credenciais do workspace).
+
 ## Lições do caminho
 
 - A conferência da bronze **pegou um problema real na fonte**: faltava uma das 20 planilhas do Excel no data lake (85 tarefas a menos). Corrigir na origem, não relaxar o teste.
@@ -161,4 +225,4 @@ torre_de_controle/
 
 ## Créditos
 
-Caso, dataset sintético e roteiro de prompts da **Imersão Jornada de Dados**, por [Luciano Galvão](https://github.com/lvgalvao). A implementação, as decisões e as correções documentadas acima são deste repositório.
+Caso, dataset sintético e roteiro de prompts da **Imersão Jornada de Dados**, por [Luciano Galvão](https://github.com/lvgalvao). A implementação, as decisões e as correções documentadas acima são deste repositório. Licença [MIT](LICENSE).
