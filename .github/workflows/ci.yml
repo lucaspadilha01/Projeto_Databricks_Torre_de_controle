@@ -1,0 +1,53 @@
+# Verificações que não precisam de acesso ao workspace Databricks (sem credenciais no CI).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  app:
+    name: App (typecheck + lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: torre_de_controle/minha-torre
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: torre_de_controle/minha-torre/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+
+  scripts:
+    name: Scripts e SQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Scripts Python compilam
+        run: python -m py_compile torre_de_controle/scripts/gerar_dashboard.py torre_de_controle/scripts/gerar_genie.py
+      - name: O JSON do dashboard versionado é o que o script gera
+        run: |
+          python torre_de_controle/scripts/gerar_dashboard.py
+          git diff --exit-code -- torre_de_controle/resources/dashboard-portfolio.lvdash.json
+      - name: Sem ponto e vírgula na metric view (a sql_task corta o arquivo em todo um)
+        run: "! grep -n ';' torre_de_controle/src/metricas/metricas.sql"
+
+  secrets:
+    name: Varredura de segredos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
